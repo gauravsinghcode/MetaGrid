@@ -17,9 +17,9 @@ class ColumnMetadata(models.Model):
     name = models.CharField(max_length=255, null=False)
     data_type = models.CharField(max_length=10, null=False)
     is_active = models.BooleanField(default=True, null=False)
-    nullable = models.BooleanField(null=False)
-    primary_key = models.BooleanField()
-    unique = models.BooleanField()
+    is_nullable = models.BooleanField(null=False)
+    is_primary_key = models.BooleanField()
+    unique = models.BooleanField(default=False)
     default_value = models.CharField(max_length=25, null=True, blank=True)
 
     def __str__(self):

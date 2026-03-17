@@ -1,0 +1,30 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="bg-white shadow rounded-lg p-8 max-w-lg">
+
+    <form method="POST">
+
+        {% csrf_token %}
+
+        {% for field in fields %}
+
+            {% include "components/form_input.html" with label=field.name|title name=field.name %}
+
+        {% endfor %}
+
+        <button
+            type="submit"
+            class="mt-2 bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 transition"
+        >
+
+            Insert Row
+
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}

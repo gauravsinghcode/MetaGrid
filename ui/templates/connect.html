@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Connect Database</title>
+    </head>
+
+    <body>
+
+    <h2>Connect SQLite Database</h2>
+
+    <form method="POST">
+        
+        {% csrf_token %}
+
+        <label>Database Path:</label>
+        <input type="text" name="db_path" placeholder="temp.db">
+
+        <button type="submit">Connect</button>
+
+    </form>
+
+    </body>
+</html>

@@ -35,24 +35,6 @@ def sync_table_metadata(metadata: dict):
         inactivate_table(inactive_tables=inactive_tables)
 
 
-def get_sqlite_columns(cursor, table_name):
-
-    cursor.execute(f"PRAGMA table_info({table_name});")
-    rows = cursor.fetchall()
-
-    columns = []
-    for row in rows:
-        columns.append({
-            "name": row[1],
-            "data_type": row[2],
-            "is_nullable": not bool(row[3]),
-            "default_value": row[4],
-            "is_primary_key": bool(row[5]),
-        })
-
-    return columns
-
-
 def normalize_database(data_type: str):
 
     d_type = data_type.upper()
@@ -117,11 +99,10 @@ def typecast_data(data, canonical_type):
 
 
 @transaction.atomic
-def sync_columns_for_table(table_meta, cursor):
+def sync_columns_for_table(table_meta, db_columns):
 
     now = timezone.now()
 
-    db_columns = get_sqlite_columns(cursor, table_meta.name)
     db_column_map = {col["name"]: col for col in db_columns}
 
     metadata_qs = ColumnMetadata.objects.filter(table=table_meta)
@@ -129,18 +110,17 @@ def sync_columns_for_table(table_meta, cursor):
 
     for column_name, db_col in db_column_map.items():
 
-        normalized_type = normalize_database(db_col["data_type"])
+        normalized_type = normalize_database(db_col.get("data_type"))
 
         if column_name not in metadata_map:
             ColumnMetadata.objects.create(
                 table=table_meta,
                 name=column_name,
                 data_type=normalized_type,
-                is_nullable=db_col["is_nullable"],
-                default_value=db_col["default_value"],
-                is_primary_key=db_col["is_primary_key"],
+                is_nullable=db_col.get("is_nullable"),
+                default_value=db_col.get("default_value"),
+                is_primary_key=db_col.get("is_primary_key"),
                 is_active=True,
-                last_seen_at=now,
             )
 
         else:
@@ -151,16 +131,16 @@ def sync_columns_for_table(table_meta, cursor):
                 meta_col.data_type = normalized_type
                 changed = True
 
-            if meta_col.is_nullable != db_col["is_nullable"]:
-                meta_col.is_nullable = db_col["is_nullable"]
+            if meta_col.is_nullable != db_col.get("is_nullable"):
+                meta_col.is_nullable = db_col.get("is_nullable")
                 changed = True
 
-            if meta_col.default_value != db_col["default_value"]:
-                meta_col.default_value = db_col["default_value"]
+            if meta_col.default_value != db_col.get("default_value"):
+                meta_col.default_value = db_col.get("default_value")
                 changed = True
 
-            if meta_col.is_primary_key != db_col["is_primary_key"]:
-                meta_col.is_primary_key = db_col["is_primary_key"]
+            if meta_col.is_primary_key != db_col.get("is_primary_key"):
+                meta_col.is_primary_key = db_col.get("is_primary_key")
                 changed = True
 
             if not meta_col.is_active:
@@ -179,10 +159,15 @@ def sync_columns_for_table(table_meta, cursor):
             meta_col.save(update_fields=["is_active"])
 
 
-def sync_metadata(metadata: dict, cursor):
+def sync_metadata(metadata: dict):
 
     sync_table_metadata(metadata=metadata)
-    sync_columns_for_table(table_meta=metadata, cursor=cursor)
+
+    tables = TableMetadata.objects.all()
+
+    for table in tables:
+        columns = metadata.get(table.name, {}).get("columns", [])
+        sync_columns_for_table(table, columns)
 
 
 def metadata_resolver(table_name):
@@ -205,7 +190,7 @@ def metadata_resolver(table_name):
 def payload_validator(payload: dict, columns):
 
     payload_cols = payload.keys()
-    required_cols = list(columns.filter(nullable=False).values_list("name", flat=True))
+    required_cols = list(columns.filter(is_nullable=False).values_list("name", flat=True))
     cols_map = {}
     cleaned_data = {}
 
@@ -213,17 +198,17 @@ def payload_validator(payload: dict, columns):
         cols_map[col.name] = col
 
     for col in required_cols:
-        if col not in payload_cols and not cols_map[col].primary_key:
+        if col not in payload_cols and not cols_map[col].is_primary_key:
             return f"InvlaidValueError: {col} is a required field but no valid value is provided!"
 
     for col in payload_cols:
         if col not in cols_map:
             return f"ColumnNotExistsError: {col} does not exists!"
         
-        if cols_map[col].primary_key:
+        if cols_map[col].is_primary_key:
             return f"PrimaryKeyError: {col} is the primary key. Cannot be altered!"
         
-        if payload[col] == None and cols_map[col].nullable:
+        if payload[col] == None and cols_map[col].is_nullable:
             cleaned_data[col] = payload[col]
 
         else:

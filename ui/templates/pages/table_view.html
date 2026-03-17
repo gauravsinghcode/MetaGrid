@@ -1,0 +1,266 @@
+{% extends "base/base.html" %}
+{% load dict_extras %}
+
+{% block content %}
+
+    {% include "components/page_head.html" with title="Table: "|add:table_name button_text="Add Row" button_url="/table/"|add:table_name|add:"/add/"%}
+
+    <!-- Search -->
+
+    <form method="GET" class="mb-6 flex gap-2">
+
+        <input
+            type="text"
+            name="search"
+            placeholder="Search..."
+            value="{{ search }}"
+            class="border px-3 py-2 rounded w-72"
+        >
+
+        <button
+            type="submit"
+            class="bg-gray-800 text-white px-4 py-2 rounded"
+        >
+            Search
+        </button>
+
+    </form>
+
+    <div class="mb-6 flex gap-2 items-center">
+
+        <select id="filter-column" class="border px-3 py-2 rounded">
+
+            {% for col in columns %}
+                <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+
+        </select>
+
+        <select id="filter-operator" class="border px-3 py-2 rounded">
+
+            <option value="=">=</option>
+            <option value=">">></option>
+            <option value="<"><</option>
+            <option value=">=">>=</option>
+            <option value="<="><=</option>
+            <option value="LIKE">LIKE</option>
+
+        </select>
+
+        <input
+            id="filter-value"
+            type="text"
+            placeholder="value"
+            class="border px-3 py-2 rounded"
+        >
+
+        <button
+            id="apply-filter"
+            class="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+            Apply
+        </button>
+
+    </div>
+
+
+    <!-- Table -->
+
+    <div class="bg-white border rounded-lg overflow-hidden">
+
+        <table class="min-w-full">
+
+            <thead class="bg-gray-50 border-b">
+
+                <tr>
+
+                    {% for col in columns %}
+
+                        <th class="text-left px-4 py-3 text-sm font-medium text-gray-600">
+
+                            <a
+                                href="?search={{ search }}&order_by={{ col }}&sort={% if order_by == col and sort == 'ASC' %}DESC{% else %}ASC{% endif %}"
+                                class="flex items-center gap-1 hover:text-gray-900 cursor-pointer"
+                            >
+
+                                {{ col }}
+
+                                {% if order_by == col %}
+                                    {% if sort == "ASC" %}
+                                        <span>↑</span>
+                                    {% else %}
+                                        <span>↓</span>
+                                    {% endif %}
+                                {% endif %}
+
+                            </a>
+
+                        </th>
+
+                    {% endfor %}
+
+                    <th class="px-4 py-3 text-sm text-gray-600">
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody class="divide-y">
+
+    {% for row in rows %}
+
+        <tr class="hover:bg-gray-50">
+
+            {% for col in columns %}
+
+                {% if col != "id" %}
+
+                    <td
+                        class="px-4 py-2 text-sm text-gray-700 editable-cell"
+                        data-id="{{ row.id }}"
+                        data-column="{{ col }}"
+                    >
+                {% else %}
+
+                    <td
+                        class="px-4 py-2 text-sm text-gray-700"
+                        data-id="{{ row.id }}"
+                        data-column="{{ col }}"
+                    >
+
+                {% endif %}
+
+                    {{ row|get_item:col }}
+
+                </td>
+
+            {% endfor %}
+
+            <td class="px-4 py-2 text-sm">
+
+                <a
+                    href="/table/{{table_name}}/delete/{{row.id}}/"
+                    class="text-red-600 hover:underline"
+                >
+                    Delete
+                </a>
+
+            </td>
+
+        </tr>
+
+    {% endfor %}
+
+</tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- Pagination -->
+
+    <div class="flex justify-between items-center mt-6 text-sm text-gray-600">
+
+        {% if page > 1 %}
+
+            <a
+                href="?page={{ page|add:'-1' }}&search={{ search }}&order_by={{ order_by }}&sort={{ sort }}"
+                class="px-3 py-1 border rounded hover:bg-gray-100"
+            >
+                ← Previous
+            </a>
+
+        {% else %}
+
+            <span></span>
+
+        {% endif %}
+
+        <span>
+            Page {{ page }}
+        </span>
+
+        <a
+            href="?page={{ page|add:'1' }}&search={{ search }}&order_by={{ order_by }}&sort={{ sort }}"
+            class="px-3 py-1 border rounded hover:bg-gray-100"
+        >
+            Next →
+        </a>
+
+    </div>
+
+
+<script>
+
+    document.querySelectorAll(".editable-cell").forEach(cell => {
+
+    cell.addEventListener("click", function () {
+
+        const originalValue = this.innerText;
+        const column = this.dataset.column;
+        const rowId = this.dataset.id;
+
+        const input = document.createElement("input");
+        input.value = originalValue;
+        input.className = "border px-2 py-1 rounded w-full";
+
+        this.innerHTML = "";
+        this.appendChild(input);
+
+        input.focus();
+
+        input.addEventListener("blur", () => {
+
+            const newValue = input.value;
+
+            fetch(`/table/{{table_name}}/update/${rowId}/`, {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+
+                body: `column=${column}&value=${newValue}`
+
+            })
+            .then(res => res.json())
+            .then(() => {
+
+                cell.innerText = newValue;
+
+            });
+
+        });
+
+    });
+
+});
+
+</script>
+
+<script>
+
+    document.getElementById("apply-filter").addEventListener("click", function(){
+
+    const column = document.getElementById("filter-column").value
+    const operator = document.getElementById("filter-operator").value
+    const value = document.getElementById("filter-value").value
+
+    const url = new URL(window.location.href)
+
+    url.searchParams.set("filter_column", column)
+    url.searchParams.set("filter_operator", operator)
+    url.searchParams.set("filter_value", value)
+
+    window.location.href = url.toString()
+
+})
+
+</script>
+
+{% endblock %}

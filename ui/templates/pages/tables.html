@@ -1,0 +1,43 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="max-w-5xl">
+
+    <h2 class="text-lg font-semibold mb-6 text-gray-700">
+        Database Tables
+    </h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        {% for table in tables %}
+
+        <a href="/table/{{ table.name }}/">
+
+            <div class="bg-white border rounded-lg p-5 shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between">
+
+                <div class="flex items-center gap-3">
+
+                    <span class="text-xl">📦</span>
+
+                    <span class="font-medium text-gray-700">
+                        {{ table.name|title }}
+                    </span>
+
+                </div>
+
+                <span class="text-gray-400 text-sm">
+                    Open →
+                </span>
+
+            </div>
+
+        </a>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+{% endblock %}
