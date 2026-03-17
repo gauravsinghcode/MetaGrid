@@ -64,11 +64,11 @@ MetaGrid follows a layered architecture:
 
 ## 📂 Project Structure
 
-core/
-metadata/
-validators/
-query_builder/
-execution/
+          core/
+          metadata/
+          validators/
+          query_builder/
+          execution/
 
 
 ---
